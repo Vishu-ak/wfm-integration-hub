@@ -1,0 +1,25 @@
+{
+  "name": "wfm-integration-hub",
+  "version": "1.0.0",
+  "description": "Integration service that syncs employee and timecard data from a workforce management (WFM) system to downstream payroll, with field mapping, idempotency, retries and a dead-letter queue.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "node dist/server.js",
+    "dev": "tsx src/server.ts",
+    "mock": "tsx src/mock/run-mocks.ts"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

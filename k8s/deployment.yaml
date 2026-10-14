@@ -1,0 +1,66 @@
+# Deployment for GKE. Credentials come from the `wfm-integration-hub-secrets` Secret,
+# which is synced from Google Secret Manager (see k8s/external-secret.yaml) so nothing
+# sensitive is stored in this repo or the container image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wfm-integration-hub
+  labels: { app: wfm-integration-hub }
+spec:
+  replicas: 1 # one writer: the sync keeps its cursor in a single state file
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: wfm-integration-hub }
+  template:
+    metadata:
+      labels: { app: wfm-integration-hub }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: app
+          image: us-docker.pkg.dev/PROJECT_ID/apps/wfm-integration-hub:latest
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: SYNC_INTERVAL_SECONDS, value: "300" }
+            - { name: STATE_FILE, value: /data/state.json }
+          envFrom:
+            - secretRef: { name: wfm-integration-hub-secrets }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket: { port: 8080 }
+            periodSeconds: 30
+          volumeMounts:
+            - { name: state, mountPath: /data }
+      volumes:
+        - name: state
+          persistentVolumeClaim: { claimName: wfm-integration-hub-state }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wfm-integration-hub-state
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: { storage: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wfm-integration-hub
+spec:
+  selector: { app: wfm-integration-hub }
+  ports: [{ port: 80, targetPort: 8080 }]
